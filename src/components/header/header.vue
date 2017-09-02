@@ -66,7 +66,7 @@
         padding: 24px 12px 18px 24px;
     }
 
-    .avatar {
+    .header .avatar {
         width: 64px;
         height: 64px;
         display: inline-block;

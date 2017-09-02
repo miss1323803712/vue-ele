@@ -14,6 +14,20 @@
     .tab{
         display: flex;
     }
+    .tab>a:after{
+        content: '';
+        display: block;
+        height: 1px;
+        background: rgba(7,17,27,0.1);
+        position: relative;
+        bottom: 1px;
+        z-index: 10;
+        width: 100%;
+    }
+    .router-link-active{
+        color: red!important;
+    }
+
     .tab>a{
         height: 40px;
         line-height: 40px;
@@ -22,6 +36,6 @@
         font-size: 14px;
         display: block;
         flex: 1;
-
     }
+
 </style>

@@ -1,41 +1,58 @@
 <template>
-    <div class="goods">
-        <div class="menu-wrapper" ref="menuWrapper">
-            <ul>
-                <li class="menu-item" :class="{'current':currentIndex===index}" v-for="(v,index) in goods" @click="clickMenuItem($event,index)">
+    <div>
+        <div class="goods">
+            <div class="menu-wrapper" ref="menuWrapper">
+                <ul>
+                    <li class="menu-item" :class="{'current':currentIndex===index}" v-for="(v,index) in goods"
+                        @click="clickMenuItem($event,index)">
                     <span class="text">
                         <i class="icon" v-if="v.type>=0"></i>
                         {{v.name}}
                     </span>
-                </li>
-            </ul>
-        </div>
-        <div class="foods-wrapper" ref="foodsWrapper">
-            <div>
-                <div class="foods-list" v-for="(v,index) in goods">
-                    <h3>{{v.name}}</h3>
-                    <div class="foods-item" v-for="(val,index) in v.foods">
-                        <div class="foods-item-img">
-                            <img width="60" height="60" :src="val.icon" alt="">
-                        </div>
-                        <div class="foods-item-desc">
-                            <h2>{{val.name}}</h2>
-                            <p><span class="sellCount">月售{{val.sellCount}}份</span><span
-                                    class="rating">好评率{{val.rating}}%</span></p>
-                            <p class="price">
-                                <span class="nowPrice">￥{{val.price}}</span>
-                                <span class="oldPrice" v-if="val.oldPrice">￥{{val.oldPrice}}</span>
-                            </p>
+                    </li>
+                </ul>
+            </div>
+            <div class="foods-wrapper" ref="foodsWrapper">
+                <div>
+                    <div class="foods-list" v-for="(v,index) in goods">
+                        <h3>{{v.name}}</h3>
+                        <div class="foods-item" @click.stop="clickFood(val,$event)" v-for="(val,index) in v.foods">
+                            <div class="foods-item-img">
+                                <img width="60" height="60" :src="val.icon" alt="">
+                            </div>
+                            <div class="foods-item-desc">
+                                <h2>{{val.name}}</h2>
+                                <p><span class="sellCount">月售{{val.sellCount}}份</span><span
+                                        class="rating">好评率{{val.rating}}%</span></p>
+                                <p class="price">
+                                    <span class="nowPrice">￥{{val.price}}</span>
+                                    <span class="oldPrice" v-if="val.oldPrice">￥{{val.oldPrice}}</span>
+                                </p>
+                            </div>
+                            <div class="controller-wrapper">
+                                <v-controller :food="val" :updateFoodCount="updateFoodCount"></v-controller>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <v-shoppingCart :updateFoodCount="updateFoodCount"
+                            :shoppingList="shoppingList"
+                            :minPrice="seller.minPrice"
+                            :deliveryPrice="seller.deliveryPrice"
+                            :clearCart="clearCart"
+            >
+            </v-shoppingCart>
         </div>
+            <v-food :food="selectedFood" :updateFoodCount="updateFoodCount" ref="food"></v-food>
     </div>
 </template>
 <script>
     import BScroll from 'better-scroll'
     import Vue from 'vue'
+    import shoppingCart from '../shoppingcart/shoppingcart.vue'
+    import controller from '../controller/controller.vue'
+    import foodDetail from '../foodDetail/foodDetail.vue'
     export default{
         props: {
             goods: Array,
@@ -46,18 +63,28 @@
             return {
                 //每个分类高度
                 listHeight: [],
-                scrollY: 0
+                //实时滚动的位置
+                scrollY: 0,
+                //保存当前props的goods信息
+                singleGoods:[],
+                //当用户点击商品详情的时候
+                selectedFood:{}
             }
+        },
+        components: {
+            'v-controller': controller,
+            'v-shoppingCart': shoppingCart,
+            'v-food':foodDetail
         },
         methods: {
             //初始化滚动事件
             initScroll(){
                 this.menuScroll = new BScroll(this.$refs.menuWrapper, {
-                    click:true
+                    click: true
                 });
                 this.foodsScroll = new BScroll(this.$refs.foodsWrapper, {
                     probeType: 3,
-                    click:true
+                    click: true
                 });
                 //实时监听滚动的位置
                 this.foodsScroll.on('scroll', (pos) => {
@@ -78,16 +105,61 @@
 //                console.log(this.listHeight);
             },
             //当点击左侧菜单触发的事件
-            clickMenuItem($event,index){
+            clickMenuItem($event, index){
                 //过滤原生dom事件
+                if (!$event._constructed) {
+                    return;
+                }
+                var ele = this.$refs.foodsWrapper.getElementsByClassName('foods-list')[index];
+                this.foodsScroll.scrollToElement(ele, 300);
+            },
+            /**
+             * 点击加入购物车触发的事件
+             * food 表示绑定的当前的商品信息 比如：瘦肉粥
+             * isAdd 表示是否是增加  true表示增加 false表示减少
+             */
+            updateFoodCount(food, isAdd, $event){
+                //过滤原生dom事件
+                if (!$event._constructed) {
+                    return;
+                }
+                //当点击的是增加
+                if (isAdd) {
+                    //说明数量为0 那么此时为1
+                    if (!food.count) {
+                        //food.count=1  没有数据绑定不会更新
+//                        food.count = 1;
+                        Vue.set(food, 'count', 1);
+                    } else {
+                        food.count++;
+                        console.log('增加');
+                    }
+                } else { //这里减少
+                    if (food.count) {
+                        food.count--;
+                    }
+                }
+            },
+            //清空购物车
+            clearCart(){
+//                console.log(1);
+                this.shoppingList.forEach((food)=>{
+                    food.count=0;
+                })
+            },
+            //点击商品详情
+            clickFood(foods,$event){
                 if(!$event._constructed){
                     return;
                 }
-                var ele=this.$refs.foodsWrapper.getElementsByClassName('foods-list')[index];
-                this.foodsScroll.scrollToElement(ele,300);
+                this.selectedFood=foods;
+                //显示商品详情
+                this.$refs.food.show(true);
+                console.log(this.selectedFood);
             }
         },
         mounted(){
+//            console.log(this.goods);
 //            Vue.nextTick(() => {
 //                this.initScroll();
 //                new BScroll(this.$refs.menuWrapper, {});
@@ -98,18 +170,36 @@
                 this.initScroll();
                 //计算高度
                 this.calculateHeight();
-            }, 20)
+                //把goods的值赋值为singleGoods  不知道为何拿不到 goods
+                this.singleGoods=this.goods;
+            }, 20);
+
         },
         computed: {
             //计算当前的索引值
             currentIndex(){
                 for (let i = 0; i < this.listHeight.length; i++) {
-                    if(this.scrollY>=this.listHeight[i]&&this.scrollY<this.listHeight[i+1]){
-                        console.log(i);
+                    if (this.scrollY >= this.listHeight[i] && this.scrollY < this.listHeight[i + 1]) {
+//                        console.log(i);
                         return i;
                     }
                 }
                 return 0;
+            },
+            //购物车商品
+            shoppingList(){
+                var arr = [];
+                for (let i = 0; i < this.singleGoods.length; i++) {
+//                    console.log(this.singleGoods[i].foods);
+                    for(let j=0;j<this.singleGoods[i].foods.length;j++){
+                        //如果有count属性说明已经加入购物车
+                        if(this.singleGoods[i].foods[j].count){
+                            arr.push(this.singleGoods[i].foods[j]);
+                        }
+                    }
+                }
+                //arr中返回带有count的商品
+                return arr;
             }
         }
     }
@@ -214,11 +304,19 @@
         font-size: 14px;
         color: #501c47;
     }
-    .menu-item.current{
+
+    .menu-item.current {
         background: white;
         z-index: 100;
     }
-    .menu-item.current .text{
+
+    .menu-item.current .text {
         border-top: 1px solid transparent;
+    }
+
+    .controller-wrapper {
+        position: absolute;
+        right: 0;
+        bottom: 5px;
     }
 </style>
